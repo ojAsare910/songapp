@@ -1,0 +1,62 @@
+
+services:
+  web:
+    build: .
+    ports:
+      - "${SERVER_PORT}:${SERVER_PORT}"
+    networks:
+      - app-network
+    environment:
+      - SPRING_DATASOURCE_URL=${POSTGRES_URL}
+      - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER}
+      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}
+      - SPRING_DATA_REDIS_HOST=${REDIS_HOST}
+      - SPRING_DATA_REDIS_PORT=${REDIS_PORT}
+      - SERVER_PORT=${SERVER_PORT}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:${SERVER_PORT}/actuator/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+  db:
+    image: postgres:14
+    environment:
+      POSTGRES_DB: test
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    networks:
+      - app-network
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:6.2-alpine
+    networks:
+      - app-network
+    ports:
+      - "${REDIS_PORT}:6379"
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+    postgres_data:
+
+networks:
+  app-network:
+    driver: bridge
