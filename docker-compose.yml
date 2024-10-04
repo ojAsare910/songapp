@@ -3,39 +3,40 @@ services:
   web:
     build: .
     ports:
-      - "${SERVER_PORT}:${SERVER_PORT}"
+      - "8083:8083"
     networks:
       - app-network
     environment:
-      - SPRING_DATASOURCE_URL=${POSTGRES_URL}
-      - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER}
-      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}
-      - SPRING_DATA_REDIS_HOST=${REDIS_HOST}
-      - SPRING_DATA_REDIS_PORT=${REDIS_PORT}
-      - SERVER_PORT=${SERVER_PORT}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/music
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: password123
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SERVER_PORT: 8083
     depends_on:
-      db:
+      postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
     volumes:
       - ./logs:/app/logs
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:${SERVER_PORT}/actuator/health"]
+      test: [ "CMD", "curl", "-f", "http://localhost:8083/actuator/health" ]
       interval: 30s
-      timeout: 3s
-      retries: 3
+      timeout: 10s
+      retries: 5
 
-  db:
-    image: postgres:14
+  postgres:
+    image: postgres:alpine
+    container_name: postgres
+    ports:
+      - "5432:5432"
     environment:
-      POSTGRES_DB: test
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: music
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password123
     networks:
       - app-network
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U postgres" ]
       interval: 10s
@@ -43,11 +44,11 @@ services:
       retries: 5
 
   redis:
-    image: redis:6.2-alpine
+    image: redis:latest
     networks:
       - app-network
     ports:
-      - "${REDIS_PORT}:6379"
+      - "6379:6379"
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
